@@ -1,5 +1,9 @@
 {
   "schemaVersion": 1,
   "target": "GVBSMEDIA",
-  "state": "idle"
+  "requestId": "gvm-bfb9c5b73b1f47e9b32898b39e48c1b1",
+  "expiresAt": "2026-09-22T15:57:05.682733Z",
+  "wrappedKey": "HnSZrwr3kKKcZs3DiKB9SzUxyJn7CSrdtCTiu9TjNT/rMjVsbukQVD4ruvqrdA0F0bHry96cGhpqhcpTdsGwelgZCtT+Y2jPL1pa9yvCEg4fSexJ6sDITm2pHzzpMiBuuttFmTer/HNdr7cysS4bTNV4LWjCLeZGjyIEa60zNRzZ0t6/UTZQrQluyu8oxWa9tA+2wF9++VB1B4AS0GY/N+mma9jA08yubbM1CjXvsRCPqnF2vk9I/F0bRjICddbPY0afsz+Bb5o0sGqe16GuIEubcSPeGtGo3sMkqDMOmR7WrGnk5571tzfVzTGKz29yYRoIU9zXUFAfNckLVOsvHllxlOSBtJOZwgQWIEM61CokWpkJV99kbg9YbMZWvcegUyAfVQK0sytHlYKN6o1tAl3tN/HMP7iI7/KrAaHJRCnm+D+Mj3aRqZitWaY6a3Q423EKkdb1C0FvRrSBLbUBtIobdu3JolOhb/eg0bwakj1vWW5U3mTgEJFYTh88lQ/wLY1Q+re6W9tfWKaxys4ZzGbK1R5Kt5oZQUL6qT6vZf9FIs+HwzBVdarZyMNB+FL1+XCAREFgs221DDuMuu9EI/FMAqxYPlqFkMEQgijhmTSOghViMuZKT3DnUBWvgWaCD0yoL9T1KcxzTlgc25RU1p/QA3cf/H591sbVc/i0YqA=",
+  "nonce": "HyrtAm7+2Oe5v7MY",
+  "ciphertext": "oK/ZcbGyqU5Q9AUhFjU4TjorsB/dPA6Q0h9jI2disBc3aHmnGQNOd1XpE16+5eDTy5qqfg39DXOoSQKVLeRzLNshgjRBIRWnCc9SOeBqKmzuowDn0WqZMKepT+5v+9k69KyWTm65H8440YfHdXMTP4eUg6zcD267DfxsgxpgBxoBHLWufVJHe4iv1AL8+ptOV1hOc+Z2mzgsrJ6tVFjvvrcOoquQ7JSq0DDc9NIwzTN84Lsww2GRbsW1dwPGDtK59ZIIlkRrUZtYRSiFj+buC37QdnfYCpMkoiPmBsaZKcONDYfh3rUBV4Nn+YJWeGD52Y20oB7KRS8="
 }
