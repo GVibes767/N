@@ -1,5 +1,9 @@
 {
+  "ciphertext": "mpEvjWONM2SdVSpZclMSvBRwRxnYD/1J0rxtybXhBoheowmjXz1ZgN91Pyii+4cXz9YJ/4UuL099n+H3L61wo1ErfD18eAS66io6Aj42PQK1Fw5PaPe1rJmqhLWy5edVm+m4XclZ/WyhaYr+w3Nb1RhRITj+bZmONR+HgOuzdag+oTsrgwZUo5v+DAZa29rdrLbWt78fKKwkI9gHvNgnPttvpn4pxiI=",
+  "expiresAt": "2026-09-22T13:12:48.899247Z",
+  "nonce": "Y7iP6Hp/7uL3UPND",
+  "requestId": "gvm-51112e7c917a4f9697769f7dbf73d32b",
   "schemaVersion": 1,
   "target": "GVBSMEDIA",
-  "state": "idle"
+  "wrappedKey": "jRrAPbnd0eL7LRfjBBz/ACAVHOJMyeAXPW4E6UmAmX+vSGfkmvjrdnSddh+GHDQP6reqE+MWhbDSDSW6u8Yo6dAohoWoNYZZNFlY+9RqgVWXmSWgGWp+Yvt/t4zxDNydkoytAvxPQkRNfctOtobV3NizcB8X9LFNhj2QD/RT7J3Lo4o66e+PVwgaxbvWT/RB4zPjgn48TRRUuS58hHqU2TOJMGsRRNsfblzuo6TNZ62S4hH5YLq3wI+HNOk/9udM5+gyBPkduYiVUdGNBpR3EA/rfsEnCw+P491qLxdWaWlg14tFl9ClqUofoicVPPqC5etLcsYvjExQ9aDKE2s/HA81b1TDaMy8rAXsyXsKAle/TBYxxGWp5eGERI8MOoSD/RZOtM36o9bq2ZwQtjg83OvH/5KW9JEQ8YXO9pckxkf59BdXKFKazZI764eQb+5T/BJQXizpny1AWLE8lffubU4jya/EWSW3v95Re6k1nsbOC5yWRc6waJUN03tBvKiXgAw7g2DbwRK+Fw7BptB/5wufSD65kOQwHDuVV6DWIvDa/4rdIScUFj7ViHUD4IklPmlcZUHdeSJW1zznSCTW5b60uLLjk9qC7QSlFTitd9NrrTQ0ExOMDiOTqMNV0t+VPIMh44zdUvqGTPZkVInomAdOMjaAXRHU0GLmNAaPGO8="
 }
