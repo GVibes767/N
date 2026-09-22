@@ -27,6 +27,13 @@ Queue files are immutable command leases.
 8. A malformed command is persisted as `rejected`, logged, and isolated; later commands continue.
 9. A command lifetime is bounded; the device rejects expired commands and lifetimes over 30 minutes.
 
+## Long-running process policy
+
+- Synchronous `process.start` through the relay is limited to 45 seconds.
+- Longer work must use `timeout=0` (detached) and expose completion through an artifact/readback.
+- This prevents one long process from occupying the relay until a transport/client timeout.
+- The guard is enforced before execution, so an invalid long synchronous request does not start the process.
+
 ## Legacy single-slot fallback
 
 `relay/command.json` remains available only as a compatibility fallback.
@@ -81,9 +88,11 @@ Verified:
 - Hidden process execution creates no visible console window.
 - Supervisor restart path works.
 - Malformed-item isolation was tested live: a deliberately invalid command did not block the valid command behind it.
-- Relay unit regression: 11/11 PASS.
+- Long synchronous process guard was tested live: `timeout=46` was rejected before process execution.
+- Relay unit regression: 12/12 PASS.
 - GVM Connect regression: 9/9 PASS.
 - Full workspace checks: `.ai/logs/checks-20260922T165257275Z.json` status `ok`.
+- Final `system.status`: host `GVBSMEDIA`, `fullLocal=true`, `publicListener=false`.
 - Startup shortcut target/arguments/working directory were verified.
 - Hardening queue was cleaned.
 
