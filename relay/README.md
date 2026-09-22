@@ -4,19 +4,22 @@ Free encrypted command channel for the GVBSMEDIA workstation.
 
 ## Status
 
-**MVP v2 accepted on 2026-09-22.**
+**Production RC 0.3.0 accepted locally on 2026-09-22.**
 
-Verified gates:
+Verified:
 - Queue-v2 end-to-end command delivery.
 - Read-only and effect-tool execution with readback.
 - Hidden Windows process execution without console windows.
-- Supervisor/restart path.
-- GVM Connect regression.
-- Relay regression.
-- Completed queue cleanup.
-- Legacy command slot returned to `idle`.
+- Hidden pythonw supervisor and automatic relay-child restart.
+- Adaptive polling: 1.5 s idle / 0.5 s for 10 s after activity.
+- Health telemetry in `E:\AppCaches\GVMRelay\relay-status.json`.
+- Malformed queue-item isolation: rejected commands no longer block later work.
+- GVM Connect and relay regressions pass.
+- Full workspace checks report `.ai/logs/checks-20260922T165257275Z.json` has `status: ok`.
+- Completed hardening queue items were cleaned.
+- Legacy command slot is retained only as a fallback.
 
-RDC is no longer the primary runtime path. It remains only as an emergency bootstrap/fallback while GVM Relay is maintained.
+RDC is no longer the primary runtime path. It is an emergency bootstrap/diagnostic fallback.
 
 ## Transport
 
@@ -30,3 +33,5 @@ RDC is no longer the primary runtime path. It remains only as an emergency boots
 The Windows agent only calls tools explicitly exposed by GVM Connect.
 Commands and responses are encrypted; GitHub does not store plaintext payloads.
 The relay uses a hidden `pythonw` supervisor and requires no inbound port on the workstation.
+
+A full Windows reboot/login acceptance is intentionally not performed automatically because it interrupts the user's workstation. The Startup shortcut itself and live supervisor restart path are verified.
