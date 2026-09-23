@@ -1,0 +1,130 @@
+name: GVM Direct Repair Probe
+
+on:
+  push:
+    paths:
+      - ".github/workflows/gvm-direct-repair-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe GVM without RDC or Codex
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Continue'
+          if ($env:COMPUTERNAME -ne 'GVBSMEDIA') { throw "Wrong runner: $env:COMPUTERNAME" }
+
+          $result = [ordered]@{
+            timestamp = (Get-Date).ToUniversalTime().ToString('o')
+            computerName = $env:COMPUTERNAME
+            tcp8765 = $false
+            localHealth = $null
+            fastPublicHealth = $null
+            tasks = @()
+            processes = @()
+            relayStatus = $null
+            gvmStatusFiles = @()
+            tunnelProfile = @()
+            tunnelDoctor = @()
+            tunnelHelp = @()
+            errors = @()
+          }
+
+          try {
+            $result.tcp8765 = (Test-NetConnection 127.0.0.1 -Port 8765 -WarningAction SilentlyContinue).TcpTestSucceeded
+          } catch { $result.errors += "tcp8765: $($_.Exception.Message)" }
+
+          try {
+            Push-Location 'E:\Для chat'
+            $health = & python -m scripts.gvm_connect.client health 2>&1 | Out-String
+            $result.localHealth = $health.Trim()
+            Pop-Location
+          } catch {
+            try { Pop-Location } catch {}
+            $result.errors += "localHealth: $($_.Exception.Message)"
+          }
+
+          try {
+            $result.fastPublicHealth = Invoke-RestMethod -Uri 'https://edge.rskbobr.ru/health' -TimeoutSec 8
+          } catch { $result.errors += "fastPublicHealth: $($_.Exception.Message)" }
+
+          $taskNames = @('GVM Fast Transport','GVM Relay','GVM Connect','GVM ChatGPT Tunnel')
+          foreach ($n in $taskNames) {
+            try {
+              $t = Get-ScheduledTask -TaskName $n -ErrorAction Stop
+              $i = Get-ScheduledTaskInfo -TaskName $n -ErrorAction SilentlyContinue
+              $result.tasks += [ordered]@{
+                name = $n
+                state = [string]$t.State
+                lastRunTime = if ($i) { $i.LastRunTime.ToUniversalTime().ToString('o') } else { $null }
+                lastTaskResult = if ($i) { $i.LastTaskResult } else { $null }
+              }
+            } catch {
+              $result.tasks += [ordered]@{ name=$n; state='missing'; lastRunTime=$null; lastTaskResult=$null }
+            }
+          }
+
+          try {
+            $result.processes = @(Get-Process -ErrorAction SilentlyContinue |
+              Where-Object { $_.ProcessName -match 'python|tunnel|gvm|git' } |
+              Select-Object Id,ProcessName,Path)
+          } catch { $result.errors += "processes: $($_.Exception.Message)" }
+
+          try {
+            $p = 'E:\AppCaches\GVMRelay\relay-status.json'
+            if (Test-Path $p) { $result.relayStatus = Get-Content $p -Raw | ConvertFrom-Json }
+          } catch { $result.errors += "relayStatus: $($_.Exception.Message)" }
+
+          try {
+            $files = @(Get-ChildItem 'E:\AppCaches' -Filter '*status*.json' -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match 'GVM' } |
+              Select-Object -First 20)
+            foreach ($f in $files) {
+              try {
+                $raw = Get-Content $f.FullName -Raw
+                if ($raw.Length -gt 20000) { $raw = $raw.Substring(0,20000) }
+                $result.gvmStatusFiles += [ordered]@{ path=$f.FullName; content=$raw }
+              } catch {}
+            }
+          } catch { $result.errors += "statusFiles: $($_.Exception.Message)" }
+
+          $profile = 'E:\AppCaches\GVMConnect\tunnel-client\profiles\gvm-connect.yaml'
+          $exe = 'E:\AppCaches\GVMConnect\tunnel-client\v0.0.14\tunnel-client.exe'
+          try {
+            if (Test-Path $profile) {
+              foreach ($line in Get-Content $profile) {
+                if ($line -match '(?i)(key|token|secret|authorization|credential)\s*:') {
+                  $result.tunnelProfile += ($line -replace ':.*$', ': <redacted>')
+                } else {
+                  $result.tunnelProfile += $line
+                }
+              }
+            }
+          } catch { $result.errors += "profile: $($_.Exception.Message)" }
+
+          try {
+            if (Test-Path $exe) {
+              $result.tunnelDoctor = @(& $exe doctor --profile $profile 2>&1 | ForEach-Object { "$_" })
+              $result.tunnelHelp = @(& $exe admin tunnels update --help 2>&1 | ForEach-Object { "$_" })
+            } else {
+              $result.errors += "tunnel-client.exe missing"
+            }
+          } catch { $result.errors += "tunnelClient: $($_.Exception.Message)" }
+
+          $out = Join-Path $env:RUNNER_TEMP 'gvm-direct-repair-probe.json'
+          $result | ConvertTo-Json -Depth 12 | Set-Content -Path $out -Encoding UTF8
+          Write-Host "PROBE_FILE=$out"
+
+      - name: Upload probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: gvm-direct-repair-probe
+          path: ${{ runner.temp }}\gvm-direct-repair-probe.json
+          retention-days: 1
