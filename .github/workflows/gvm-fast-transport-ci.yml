@@ -1,0 +1,48 @@
+name: GVM Fast Transport CI
+
+on:
+  push:
+    paths:
+      - "fast_transport/**"
+      - ".github/workflows/gvm-fast-transport-ci.yml"
+  pull_request:
+    paths:
+      - "fast_transport/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GVM_GITHUB_WEBHOOK_SECRET: ci-webhook-secret
+      GVM_DEVICE_TOKEN: ci-device-token
+      GVM_COMMAND_REPO: GVibes767/N
+      GVM_TARGET_DEVICE: GVBSMEDIA
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r fast_transport/requirements.txt
+      - run: python -m py_compile fast_transport/server.py
+      - name: Verify HMAC guard and routes
+        run: |
+          python - <<'PY'
+          import hashlib, hmac, importlib.util, pathlib
+          p = pathlib.Path("fast_transport/server.py")
+          spec = importlib.util.spec_from_file_location("gvm_fast_server", p)
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+          body = b'{"ok":true}'
+          sig = "sha256=" + hmac.new(b"ci-webhook-secret", body, hashlib.sha256).hexdigest()
+          assert m.verify_github_signature(body, sig)
+          assert not m.verify_github_signature(body, "sha256=bad")
+          app = m.build_app()
+          paths = {r.resource.canonical for r in app.router.routes()}
+          assert "/health" in paths
+          assert "/v1/device/ws" in paths
+          assert "/v1/github/webhook" in paths
+          print("PASS")
+          PY
