@@ -1,0 +1,22 @@
+[Unit]
+Description=GVM Fast Transport relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gvmfast
+Group=gvmfast
+EnvironmentFile=/etc/gvm-fast-transport.env
+WorkingDirectory=/opt/gvm-fast-transport
+ExecStart=/opt/gvm-fast-transport/.venv/bin/python /opt/gvm-fast-transport/server.py
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/gvm-fast-transport
+
+[Install]
+WantedBy=multi-user.target
