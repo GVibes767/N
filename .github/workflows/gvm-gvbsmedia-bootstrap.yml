@@ -1,0 +1,71 @@
+name: GVM GVBSMEDIA Bootstrap
+
+on:
+  push:
+    paths:
+      - ".github/workflows/gvm-gvbsmedia-bootstrap.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 45
+    steps:
+      - name: Verify GVBSMEDIA
+        shell: powershell
+        run: |
+          if ($env:COMPUTERNAME -ne 'GVBSMEDIA') {
+            throw "This workflow is restricted to GVBSMEDIA."
+          }
+          Write-Host "GVBSMEDIA self-hosted runner confirmed."
+
+      - name: Run local Codex repair
+        shell: powershell
+        run: |
+          Set-Location 'E:\Для chat'
+          $prompt = @'
+          Read .ai/GVM-AUTONOMY-SAFE-UPGRADE-TASK.md and execute it completely.
+          Reconcile the current concurrent edits safely. Do not use Remote Desktop Commander.
+          Preserve all existing user/session changes. Repair GVM Connect, Fast Transport and GitHub Relay if needed.
+          Keep production Runtime as the only durable effect queue. Preserve approvals, idempotency, scoped permissions,
+          and Resolve scratch-only boundaries. Run the required acceptance tests, write factual
+          .ai/logs/gvm-autonomy-safe-upgrade.json, update .ai/HANDOFF.md, and finish the safe MVP slice autonomously.
+          Do not claim full GVM 0.4 MVP if any historic gates remain blocked.
+          '@
+          codex exec --approve-for-me -C 'E:\Для chat' -o '.ai\logs\gvm-autonomy-codex-final.txt' $prompt
+          if ($LASTEXITCODE -ne 0) { throw "Codex repair failed with $LASTEXITCODE" }
+
+      - name: Verify local acceptance report
+        shell: powershell
+        run: |
+          Set-Location 'E:\Для chat'
+          if (!(Test-Path '.ai\logs\gvm-autonomy-safe-upgrade.json')) {
+            throw "Acceptance report missing."
+          }
+          python -m py_compile scripts\gvm_connect\tools.py scripts\gvm_connect\runtime_bridge.py scripts\gvm_connect\task_router.py
+          python -m unittest tests.test_gvm_connect -v
+          python -m unittest tests.test_gvm_relay -v
+          python tests\test_gvm04_safe_activation.py
+          pwsh -NoProfile -File scripts\Invoke-Checks.ps1
+
+      - name: Capture status
+        shell: powershell
+        run: |
+          Set-Location 'E:\Для chat'
+          python -m scripts.gvm_connect.client health | Out-File '.ai\logs\gvm-autonomy-gvm-connect-health.json' -Encoding utf8
+          Get-ScheduledTask -TaskName 'GVM Fast Transport','GVM Relay','GVM Connect' |
+            Select-Object TaskName,State |
+            ConvertTo-Json | Out-File '.ai\logs\gvm-autonomy-task-status.json' -Encoding utf8
+
+      - name: Upload acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: gvm-autonomy-safe-upgrade
+          path: |
+            E:\Для chat\.ai\logs\gvm-autonomy-safe-upgrade.json
+            E:\Для chat\.ai\logs\gvm-autonomy-codex-final.txt
+            E:\Для chat\.ai\logs\gvm-autonomy-gvm-connect-health.json
+            E:\Для chat\.ai\logs\gvm-autonomy-task-status.json
