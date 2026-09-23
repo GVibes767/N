@@ -30,10 +30,11 @@ jobs:
       - name: Verify HMAC guard and routes
         run: |
           python - <<'PY'
-          import hashlib, hmac, importlib.util, pathlib
+          import hashlib, hmac, importlib.util, pathlib, sys
           p = pathlib.Path("fast_transport/server.py")
           spec = importlib.util.spec_from_file_location("gvm_fast_server", p)
           m = importlib.util.module_from_spec(spec)
+          sys.modules[spec.name] = m
           spec.loader.exec_module(m)
           body = b'{"ok":true}'
           sig = "sha256=" + hmac.new(b"ci-webhook-secret", body, hashlib.sha256).hexdigest()
