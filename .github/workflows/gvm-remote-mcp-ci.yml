@@ -1,0 +1,28 @@
+name: GVM Remote MCP CI
+
+on:
+  push:
+    paths:
+      - "gvm_remote_mcp/**"
+      - ".github/workflows/gvm-remote-mcp-ci.yml"
+  pull_request:
+    paths:
+      - "gvm_remote_mcp/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gvm_remote_mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pytest
+      - run: python -m py_compile server.py
+      - run: pytest -q
