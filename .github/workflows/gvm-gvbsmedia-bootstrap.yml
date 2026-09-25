@@ -22,65 +22,50 @@ jobs:
           }
           Write-Host "GVBSMEDIA self-hosted runner confirmed."
 
-      - name: Run local Codex direct-access repair
+      - name: Run local Codex repair
         shell: powershell
         run: |
           Set-Location 'E:\Для chat'
           $prompt = @'
-          Work locally on GVBSMEDIA in E:\Для chat. Restore the EXISTING direct ChatGPT -> GVM Connect Tunnel -> local Runtime path. Do not create a new tunnel, MCP server, relay, repo, runtime, or credentials.
-
-          Verified current state:
-          - GVM Runtime and loopback GVM Connect respond locally.
-          - GitHub Relay works end-to-end and must remain intact.
-          - Direct ChatGPT tool call fails BEFORE local Runtime with:
-            UNAUTHORIZED: this tunnel requires an active organization context. Configure the organization ID or send the OpenAI-Organization header.
-          - tunnel-client, profile, persistent org context and Scheduled Tasks already exist.
-          - The desired UX is that from any ordinary ChatGPT chat, phrases like "работай локально", "подключись к GVBSMEDIA", or equivalent local-computer requests are enough for ChatGPT to select/use the existing GVM Connect tools without @ mentions or shell commands, whenever the plugin/tunnel is available in that workspace.
-
-          Required process:
-          1. Inspect the actual existing implementation first: GVM Studio/control center, scripts.gvm_connect, tunnel_runtime, persistent state, profile YAML, tunnel-client version/config, Scheduled Tasks, logs, plugin/tool descriptions or local metadata, Fast Transport, Relay, and current process tree.
-          2. Identify the root cause of organization-context loss. Distinguish local propagation bugs from server-side ChatGPT workspace/tunnel association.
-          3. Repair every safe LOCAL issue you find: canonical launcher/task path, env propagation, persistent org context loading, stale state, reconnect logic, duplicate processes, status reporting, and tool metadata that can make natural-language local requests discover GVM Connect automatically.
-          4. Preserve working Relay/Fast Transport, user edits, approvals, idempotency and Runtime safety boundaries. Do not print or rotate secrets.
-          5. Restart only components whose configuration you changed.
-          6. Verify:
-             - python -m scripts.gvm_connect.client health
-             - tunnel-client doctor/health for the existing profile
-             - Scheduled Task command line and last result
-             - GVM Studio/control-center state is honest
-             - no duplicate GVM/tunnel processes
-             - Relay still healthy
-             - evidence whether OpenAI edge requests reach local Runtime
-          7. If local state is correct but OpenAI Platform/ChatGPT workspace association is the blocker, determine the exact existing tunnel/profile/org relationship and report the exact Platform admin change required. Do NOT work around it by creating a new tunnel.
-          8. Do not claim direct success unless a real ChatGPT-side system_status can reach GVBSMEDIA. Your own final state must be one of:
-             LOCAL_READY
-             PLATFORM_ASSOCIATION_REQUIRED
-             DIRECT_VERIFIED
-          9. Save a concise factual report to:
-             E:\Для chat\.ai\logs\codex-gvm-direct-repair-latest.txt
-             Include root cause, files/config changed, tasks/services restarted, test evidence, exact remaining Platform action, and one-line next test from ChatGPT.
-          10. Also update any existing handoff/status file used by GVM Studio so another ChatGPT chat can understand the current canonical connection path and the phrases that should trigger local work.
-
-          Work autonomously: inspect -> root cause -> implement -> tests -> verify. Do not stop at diagnosis if a safe local fix exists.
+          Read .ai/GVM-AUTONOMY-SAFE-UPGRADE-TASK.md and execute it completely.
+          Reconcile the current concurrent edits safely. Do not use Remote Desktop Commander.
+          Preserve all existing user/session changes. Repair GVM Connect, Fast Transport and GitHub Relay if needed.
+          Keep production Runtime as the only durable effect queue. Preserve approvals, idempotency, scoped permissions,
+          and Resolve scratch-only boundaries. Run the required acceptance tests, write factual
+          .ai/logs/gvm-autonomy-safe-upgrade.json, update .ai/HANDOFF.md, and finish the safe MVP slice autonomously.
+          Do not claim full GVM 0.4 MVP if any historic gates remain blocked.
           '@
-          codex exec --approve-for-me -C 'E:\Для chat' -o '.ai\logs\codex-gvm-direct-repair-codex-final.txt' $prompt
+          codex exec --approve-for-me -C 'E:\Для chat' -o '.ai\logs\gvm-autonomy-codex-final.txt' $prompt
           if ($LASTEXITCODE -ne 0) { throw "Codex repair failed with $LASTEXITCODE" }
 
-      - name: Verify report exists
+      - name: Verify local acceptance report
         shell: powershell
         run: |
           Set-Location 'E:\Для chat'
-          if (!(Test-Path '.ai\logs\codex-gvm-direct-repair-latest.txt')) {
-            throw "Codex repair report missing."
+          if (!(Test-Path '.ai\logs\gvm-autonomy-safe-upgrade.json')) {
+            throw "Acceptance report missing."
           }
-          python -m scripts.gvm_connect.client health
+          python -m py_compile scripts\gvm_connect\tools.py scripts\gvm_connect\runtime_bridge.py scripts\gvm_connect\task_router.py
+          python -m unittest tests.test_gvm_connect -v
+          python -m unittest tests.test_gvm_relay -v
+          python tests\test_gvm04_safe_activation.py
+          pwsh -NoProfile -File scripts\Invoke-Checks.ps1
 
-      - name: Upload direct repair evidence
-        if: always()
+      - name: Capture status
+        shell: powershell
+        run: |
+          Set-Location 'E:\Для chat'
+          python -m scripts.gvm_connect.client health | Out-File '.ai\logs\gvm-autonomy-gvm-connect-health.json' -Encoding utf8
+          Get-ScheduledTask -TaskName 'GVM Fast Transport','GVM Relay','GVM Connect' |
+            Select-Object TaskName,State |
+            ConvertTo-Json | Out-File '.ai\logs\gvm-autonomy-task-status.json' -Encoding utf8
+
+      - name: Upload acceptance evidence
         uses: actions/upload-artifact@v4
         with:
-          name: gvm-direct-repair-codex
+          name: gvm-autonomy-safe-upgrade
           path: |
-            E:\Для chat\.ai\logs\codex-gvm-direct-repair-latest.txt
-            E:\Для chat\.ai\logs\codex-gvm-direct-repair-codex-final.txt
-          retention-days: 1
+            E:\Для chat\.ai\logs\gvm-autonomy-safe-upgrade.json
+            E:\Для chat\.ai\logs\gvm-autonomy-codex-final.txt
+            E:\Для chat\.ai\logs\gvm-autonomy-gvm-connect-health.json
+            E:\Для chat\.ai\logs\gvm-autonomy-task-status.json
