@@ -1,0 +1,34 @@
+name: ZP encrypted review export
+on:
+  push:
+    paths:
+      - '.github/workflows/zp-encrypted-review-export.yml'
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Collect only requested ciphertext receipts
+        env:
+          REQUEST_IDS: 'gvm-zp-d72c71f29f9d45db8b41870a76a1a9d5'
+        run: |
+          python - <<'PY'
+          import os, pathlib, urllib.request, json, re
+          out=pathlib.Path('encrypted-receipts');out.mkdir()
+          for rid in os.environ['REQUEST_IDS'].split():
+              assert re.fullmatch(r'gvm-zp-[a-f0-9]{32}',rid)
+              url='https://raw.githubusercontent.com/mediagvibes-wq/gvm-relay/main/relay/responses/'+rid+'.json'
+              data=urllib.request.urlopen(url,timeout=30).read()
+              obj=json.loads(data)
+              assert obj['requestId']==rid and obj['target']=='ChatGPT'
+              assert 'ciphertext' in obj and 'nonce' in obj
+              (out/(rid+'.json')).write_bytes(data)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zp-encrypted-receipts
+          path: encrypted-receipts/*.json
+          retention-days: 1
+          if-no-files-found: error
