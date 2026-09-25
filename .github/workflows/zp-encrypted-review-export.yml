@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 3
     steps:
       - env:
-          REQUEST_IDS: 'gvm-zp-ed04851b76ed4763a513f0443c47a6a9 gvm-zp-efa90dd63cfe440183ab5650db6972b4'
+          REQUEST_IDS: 'gvm-zp-062d8aa6b00d441da8ef13985886bfdb'
         run: |
           python - <<'PY'
           import os,pathlib,urllib.request,json,re,time
