@@ -12,15 +12,20 @@ jobs:
     steps:
       - name: Collect only requested ciphertext receipts
         env:
-          REQUEST_IDS: 'gvm-zp-d72c71f29f9d45db8b41870a76a1a9d5'
+          REQUEST_IDS: 'gvm-zp-61bc506d295f43fe880cbe3f893ce574 gvm-zp-818c1b05316748e69744e4378d32c2e4'
         run: |
           python - <<'PY'
-          import os, pathlib, urllib.request, json, re
+          import os, pathlib, urllib.request, json, re, time
           out=pathlib.Path('encrypted-receipts');out.mkdir()
           for rid in os.environ['REQUEST_IDS'].split():
               assert re.fullmatch(r'gvm-zp-[a-f0-9]{32}',rid)
               url='https://raw.githubusercontent.com/mediagvibes-wq/gvm-relay/main/relay/responses/'+rid+'.json'
-              data=urllib.request.urlopen(url,timeout=30).read()
+              for attempt in range(12):
+                  try:
+                      data=urllib.request.urlopen(url,timeout=20).read();break
+                  except Exception:
+                      if attempt==11:raise
+                      time.sleep(5)
               obj=json.loads(data)
               assert obj['requestId']==rid and obj['target']=='ChatGPT'
               assert 'ciphertext' in obj and 'nonce' in obj
