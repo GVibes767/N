@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Collect only requested ciphertext receipts
         env:
-          REQUEST_IDS: 'gvm-zp-61bc506d295f43fe880cbe3f893ce574 gvm-zp-818c1b05316748e69744e4378d32c2e4'
+          REQUEST_IDS: 'gvm-zp-a5b466c879574faeb27303fe74b255d0 gvm-zp-6545cb1f86e6409fb4d2a838fd565509 gvm-zp-b82017675ad040e0afbaafe6080a47af'
         run: |
           python - <<'PY'
           import os, pathlib, urllib.request, json, re, time
