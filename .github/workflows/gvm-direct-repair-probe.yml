@@ -11,120 +11,81 @@ permissions:
 jobs:
   probe:
     runs-on: self-hosted
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      - name: Probe GVM without RDC or Codex
+      - name: Run local Codex GVM repair
         shell: powershell
         run: |
-          $ErrorActionPreference = 'Continue'
+          $ErrorActionPreference = 'Stop'
           if ($env:COMPUTERNAME -ne 'GVBSMEDIA') { throw "Wrong runner: $env:COMPUTERNAME" }
+          Set-Location 'E:\Для chat'
 
-          $result = [ordered]@{
-            timestamp = (Get-Date).ToUniversalTime().ToString('o')
-            computerName = $env:COMPUTERNAME
-            tcp8765 = $false
-            localHealth = $null
-            fastPublicHealth = $null
-            tasks = @()
-            processes = @()
-            relayStatus = $null
-            gvmStatusFiles = @()
-            tunnelProfile = @()
-            tunnelDoctor = @()
-            tunnelHelp = @()
-            errors = @()
+          $prompt = @'
+You are operating locally on workstation GVBSMEDIA inside the existing GVM/GVM Studio project at E:\Для chat.
+Goal: restore the EXISTING direct ChatGPT -> GVM Connect Tunnel -> local GVM Runtime path and make local work usable naturally from any ChatGPT chat.
+
+Current verified facts:
+- Local Runtime answers and GVM Connect loopback on 127.0.0.1:8765 is healthy.
+- Existing GitHub Relay works end-to-end; do not replace it.
+- Direct ChatGPT call currently fails before local Runtime with:
+  UNAUTHORIZED: this tunnel requires an active organization context. Configure the organization ID or send the OpenAI-Organization header.
+- Existing tunnel-client, tunnel profile, persistent organization context, scheduled tasks and ChatGPT tunnel already exist.
+- Do NOT create a new tunnel, MCP server, GitHub relay, repo, or parallel runtime.
+
+Required work:
+1. Audit actual local state first: GVM Studio/control center, scripts.gvm_connect, tunnel_runtime, tunnel-client profile, persistent state, Scheduled Tasks, logs, current organization context propagation, existing tunnel metadata, and any ChatGPT/plugin metadata stored locally.
+2. Find the root cause of why a normal ChatGPT chat does not get an active organization context even though Runtime is healthy.
+3. Repair every LOCAL part that is legitimately repairable: organization-context persistence/propagation, launcher/task environment, tunnel-client invocation, stale state, reconnect/restart logic, health reporting, and Studio status. Preserve user changes and existing working Relay/Fast Transport.
+4. Do not expose, rotate, replace, or print secrets/tokens. Do not create new credentials unless explicitly impossible otherwise.
+5. Desired UX: from any ordinary ChatGPT chat where the existing GVM Connect plugin/tunnel is available, a user phrase such as "работай локально", "подключись к GVBSMEDIA", or an equivalent local-computer request should be sufficient for ChatGPT to select/use the existing GVM Connect tools without the user typing @ mentions or shell commands. Implement any LOCAL metadata/instructions/tool descriptions that control this, but do not claim you can change ChatGPT workspace routing if that setting is server-side.
+6. If the remaining blocker is OpenAI Platform / ChatGPT workspace association, determine the exact EXISTING tunnel ID/profile/org/workspace relationship and report the precise admin setting that must be changed. Do not create a replacement tunnel as a workaround.
+7. Restart ONLY components whose configuration you actually changed.
+8. Verification gates:
+   - local GVM health succeeds;
+   - tunnel-client doctor/health succeeds;
+   - Scheduled Task points to the canonical tunnel_runtime path and preserves org context;
+   - GVM Studio/control center reports Runtime/Tunnel state honestly;
+   - no duplicate tunnel/relay/runtime processes;
+   - existing GitHub Relay still works;
+   - collect evidence proving whether a request from OpenAI edge reaches local Runtime.
+9. Final acceptance is NOT "relay works". Final acceptance for direct channel is a real direct ChatGPT GVM system_status call reaching GVBSMEDIA. Since you cannot execute this ChatGPT-side call yourself, prepare local state and clearly distinguish:
+   LOCAL_READY / PLATFORM_ASSOCIATION_REQUIRED / DIRECT_VERIFIED.
+10. Save a concise final report to:
+   E:\Для chat\.ai\logs\codex-gvm-direct-repair-latest.txt
+Include: root cause, files/config changed, services/tasks restarted, exact verification evidence, remaining Platform action if any, and a one-line next test for ChatGPT.
+
+Work autonomously through inspect -> root cause -> implement -> tests -> verify. Do not stop at diagnosis if a safe local fix is available.
+'@
+
+          $logDir = 'E:\Для chat\.ai\logs'
+          New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+          $stdout = Join-Path $logDir 'codex-gvm-direct-repair-stdout.txt'
+          $stderr = Join-Path $logDir 'codex-gvm-direct-repair-stderr.txt'
+
+          $prompt | & codex exec --full-auto - 1> $stdout 2> $stderr
+          $code = $LASTEXITCODE
+
+          if (-not (Test-Path 'E:\Для chat\.ai\logs\codex-gvm-direct-repair-latest.txt')) {
+            @(
+              "Codex exit code: $code"
+              "--- STDOUT ---"
+              (Get-Content $stdout -Raw -ErrorAction SilentlyContinue)
+              "--- STDERR ---"
+              (Get-Content $stderr -Raw -ErrorAction SilentlyContinue)
+            ) | Set-Content 'E:\Для chat\.ai\logs\codex-gvm-direct-repair-latest.txt' -Encoding UTF8
           }
 
-          try {
-            $result.tcp8765 = (Test-NetConnection 127.0.0.1 -Port 8765 -WarningAction SilentlyContinue).TcpTestSucceeded
-          } catch { $result.errors += "tcp8765: $($_.Exception.Message)" }
+          if ($code -ne 0) { throw "Codex exited with code $code" }
 
-          try {
-            Push-Location 'E:\Для chat'
-            $health = & python -m scripts.gvm_connect.client health 2>&1 | Out-String
-            $result.localHealth = $health.Trim()
-            Pop-Location
-          } catch {
-            try { Pop-Location } catch {}
-            $result.errors += "localHealth: $($_.Exception.Message)"
-          }
-
-          try {
-            $result.fastPublicHealth = Invoke-RestMethod -Uri 'https://edge.rskbobr.ru/health' -TimeoutSec 8
-          } catch { $result.errors += "fastPublicHealth: $($_.Exception.Message)" }
-
-          $taskNames = @('GVM Fast Transport','GVM Relay','GVM Connect','GVM ChatGPT Tunnel')
-          foreach ($n in $taskNames) {
-            try {
-              $t = Get-ScheduledTask -TaskName $n -ErrorAction Stop
-              $i = Get-ScheduledTaskInfo -TaskName $n -ErrorAction SilentlyContinue
-              $result.tasks += [ordered]@{
-                name = $n
-                state = [string]$t.State
-                lastRunTime = if ($i) { $i.LastRunTime.ToUniversalTime().ToString('o') } else { $null }
-                lastTaskResult = if ($i) { $i.LastTaskResult } else { $null }
-              }
-            } catch {
-              $result.tasks += [ordered]@{ name=$n; state='missing'; lastRunTime=$null; lastTaskResult=$null }
-            }
-          }
-
-          try {
-            $result.processes = @(Get-Process -ErrorAction SilentlyContinue |
-              Where-Object { $_.ProcessName -match 'python|tunnel|gvm|git' } |
-              Select-Object Id,ProcessName,Path)
-          } catch { $result.errors += "processes: $($_.Exception.Message)" }
-
-          try {
-            $p = 'E:\AppCaches\GVMRelay\relay-status.json'
-            if (Test-Path $p) { $result.relayStatus = Get-Content $p -Raw | ConvertFrom-Json }
-          } catch { $result.errors += "relayStatus: $($_.Exception.Message)" }
-
-          try {
-            $files = @(Get-ChildItem 'E:\AppCaches' -Filter '*status*.json' -Recurse -File -ErrorAction SilentlyContinue |
-              Where-Object { $_.FullName -match 'GVM' } |
-              Select-Object -First 20)
-            foreach ($f in $files) {
-              try {
-                $raw = Get-Content $f.FullName -Raw
-                if ($raw.Length -gt 20000) { $raw = $raw.Substring(0,20000) }
-                $result.gvmStatusFiles += [ordered]@{ path=$f.FullName; content=$raw }
-              } catch {}
-            }
-          } catch { $result.errors += "statusFiles: $($_.Exception.Message)" }
-
-          $profile = 'E:\AppCaches\GVMConnect\tunnel-client\profiles\gvm-connect.yaml'
-          $exe = 'E:\AppCaches\GVMConnect\tunnel-client\v0.0.14\tunnel-client.exe'
-          try {
-            if (Test-Path $profile) {
-              foreach ($line in Get-Content $profile) {
-                if ($line -match '(?i)(key|token|secret|authorization|credential)\s*:') {
-                  $result.tunnelProfile += ($line -replace ':.*$', ': <redacted>')
-                } else {
-                  $result.tunnelProfile += $line
-                }
-              }
-            }
-          } catch { $result.errors += "profile: $($_.Exception.Message)" }
-
-          try {
-            if (Test-Path $exe) {
-              $result.tunnelDoctor = @(& $exe doctor --profile $profile 2>&1 | ForEach-Object { "$_" })
-              $result.tunnelHelp = @(& $exe admin tunnels update --help 2>&1 | ForEach-Object { "$_" })
-            } else {
-              $result.errors += "tunnel-client.exe missing"
-            }
-          } catch { $result.errors += "tunnelClient: $($_.Exception.Message)" }
-
-          $out = Join-Path $env:RUNNER_TEMP 'gvm-direct-repair-probe.json'
-          $result | ConvertTo-Json -Depth 12 | Set-Content -Path $out -Encoding UTF8
-          Write-Host "PROBE_FILE=$out"
-
-      - name: Upload probe
+      - name: Upload Codex repair report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gvm-direct-repair-probe
-          path: ${{ runner.temp }}\gvm-direct-repair-probe.json
+          name: codex-gvm-direct-repair
+          path: |
+            E:\Для chat\.ai\logs\codex-gvm-direct-repair-latest.txt
+            E:\Для chat\.ai\logs\codex-gvm-direct-repair-stdout.txt
+            E:\Для chat\.ai\logs\codex-gvm-direct-repair-stderr.txt
           retention-days: 1
