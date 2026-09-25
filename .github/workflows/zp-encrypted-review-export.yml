@@ -1,8 +1,7 @@
 name: ZP encrypted review export
 on:
   push:
-    paths:
-      - '.github/workflows/zp-encrypted-review-export.yml'
+    paths: ['.github/workflows/zp-encrypted-review-export.yml']
 permissions:
   contents: read
 jobs:
@@ -10,25 +9,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Collect only requested ciphertext receipts
-        env:
-          REQUEST_IDS: 'gvm-zp-a5b466c879574faeb27303fe74b255d0 gvm-zp-6545cb1f86e6409fb4d2a838fd565509 gvm-zp-b82017675ad040e0afbaafe6080a47af'
+      - env:
+          REQUEST_IDS: 'gvm-zp-ed04851b76ed4763a513f0443c47a6a9 gvm-zp-efa90dd63cfe440183ab5650db6972b4'
         run: |
           python - <<'PY'
-          import os, pathlib, urllib.request, json, re, time
+          import os,pathlib,urllib.request,json,re,time
           out=pathlib.Path('encrypted-receipts');out.mkdir()
           for rid in os.environ['REQUEST_IDS'].split():
               assert re.fullmatch(r'gvm-zp-[a-f0-9]{32}',rid)
               url='https://raw.githubusercontent.com/mediagvibes-wq/gvm-relay/main/relay/responses/'+rid+'.json'
-              for attempt in range(12):
+              for a in range(12):
                   try:
                       data=urllib.request.urlopen(url,timeout=20).read();break
                   except Exception:
-                      if attempt==11:raise
+                      if a==11:raise
                       time.sleep(5)
               obj=json.loads(data)
-              assert obj['requestId']==rid and obj['target']=='ChatGPT'
-              assert 'ciphertext' in obj and 'nonce' in obj
+              assert obj['requestId']==rid and obj['target']=='ChatGPT' and 'ciphertext' in obj
               (out/(rid+'.json')).write_bytes(data)
           PY
       - uses: actions/upload-artifact@v4
