@@ -22,50 +22,84 @@ jobs:
           }
           Write-Host "GVBSMEDIA self-hosted runner confirmed."
 
-      - name: Run local Codex repair
+      - name: Run permanent GVM recovery hardening
         shell: powershell
         run: |
           Set-Location 'E:\Для chat'
           $prompt = @'
-          Read .ai/GVM-AUTONOMY-SAFE-UPGRADE-TASK.md and execute it completely.
-          Reconcile the current concurrent edits safely. Do not use Remote Desktop Commander.
-          Preserve all existing user/session changes. Repair GVM Connect, Fast Transport and GitHub Relay if needed.
-          Keep production Runtime as the only durable effect queue. Preserve approvals, idempotency, scoped permissions,
-          and Resolve scratch-only boundaries. Run the required acceptance tests, write factual
-          .ai/logs/gvm-autonomy-safe-upgrade.json, update .ai/HANDOFF.md, and finish the safe MVP slice autonomously.
-          Do not claim full GVM 0.4 MVP if any historic gates remain blocked.
+          Work locally on GVBSMEDIA in E:\Для chat. The goal is to restore the EXISTING GVM connection and make it self-healing across reboot, login, tunnel crashes, temporary network loss and organization-context loss. Do not create a replacement GVM architecture, repo, tunnel, relay, runtime, or credentials unless the existing component is provably unrecoverable.
+
+          Current ChatGPT-side symptom:
+          UNAUTHORIZED: this tunnel requires an active organization context. Configure the organization ID or send the OpenAI-Organization header.
+
+          Required work:
+          1. Inspect actual current state before changing anything: scripts.gvm_connect, tunnel_runtime, launcher/task definitions, persistent state, tunnel-client profile/version, current tunnel metadata, GVM Studio status, Fast Transport, GitHub Relay, GitHub self-hosted runner, logs and process tree.
+          2. Determine why CONTROL_PLANE_ORGANIZATION_ID / OpenAI-Organization is lost on some launches. Make the canonical launcher obtain organization context only from existing persistent trusted state and fail fast if it is absent. Every tunnel start path must go through that canonical launcher; remove or disable alternate launch paths that bypass build_env().
+          3. Make startup durable:
+             - GVM Connect, Relay, Fast Transport, ChatGPT Tunnel and the GitHub self-hosted runner must start automatically after Windows boot/login as appropriate;
+             - use existing hidden/no-window launchers where possible;
+             - configure retry/restart-on-failure with bounded backoff and StartWhenAvailable;
+             - prevent duplicate instances;
+             - make network-unavailable-at-boot recover automatically after network returns.
+          4. Add/repair one lightweight watchdog/health mechanism that checks the canonical components and restarts only a failed component. It must not open visible terminal windows and must not create restart loops.
+          5. Preserve all working user changes, current credentials, approvals, idempotency, Runtime safety boundaries and GitHub Relay encryption.
+          6. Do not print, expose or rotate secrets/tokens/organization IDs in logs. Redact them.
+          7. Verify after repair:
+             - python -m scripts.gvm_connect.client health succeeds;
+             - 127.0.0.1:8765 answers;
+             - tunnel-client doctor/health succeeds;
+             - the canonical Scheduled Task command line uses tunnel_runtime and actually inherits organization context;
+             - no duplicate tunnel/relay/runtime processes;
+             - GVM Relay status is healthy and polling;
+             - self-hosted GitHub runner is online;
+             - simulate or safely test child-process failure and prove supervisor/watchdog recovery;
+             - run existing GVM Connect and Relay tests.
+          8. Reboot is not required if disruptive, but validate all startup task definitions and trigger settings. If safe and already idle, a non-disruptive task restart is allowed.
+          9. If all local state is correct but ChatGPT still returns the organization-context error, classify the remaining issue as PLATFORM_ASSOCIATION_REQUIRED and record the exact existing tunnel/profile/org/workspace association that must be fixed server-side. Do not create a new tunnel as a workaround.
+          10. Save a factual report to E:\Для chat\.ai\logs\gvm-permanent-recovery-latest.txt with root cause, files/config changed, tasks/services changed, verification evidence, remaining blocker if any, and final state LOCAL_READY / PLATFORM_ASSOCIATION_REQUIRED / DIRECT_VERIFIED.
+          11. Update the existing handoff/status documentation so a future chat understands the canonical connection path and does not revert to an obsolete launcher.
+
+          Execute inspect -> root cause -> implement -> tests -> live verification. Do not stop at diagnosis if a safe local repair exists.
           '@
-          codex exec --approve-for-me -C 'E:\Для chat' -o '.ai\logs\gvm-autonomy-codex-final.txt' $prompt
-          if ($LASTEXITCODE -ne 0) { throw "Codex repair failed with $LASTEXITCODE" }
 
-      - name: Verify local acceptance report
+          New-Item -ItemType Directory -Force -Path 'E:\Для chat\.ai\logs' | Out-Null
+          $prompt | & codex exec --full-auto - 1> '.ai\logs\gvm-permanent-recovery-stdout.txt' 2> '.ai\logs\gvm-permanent-recovery-stderr.txt'
+          $code = $LASTEXITCODE
+          if ($code -ne 0) { throw "Codex permanent recovery failed with $code" }
+
+      - name: Verify and capture evidence
+        if: always()
         shell: powershell
         run: |
           Set-Location 'E:\Для chat'
-          if (!(Test-Path '.ai\logs\gvm-autonomy-safe-upgrade.json')) {
-            throw "Acceptance report missing."
+          $out = [ordered]@{
+            timestamp = (Get-Date).ToUniversalTime().ToString('o')
+            computer = $env:COMPUTERNAME
+            health = $null
+            tasks = @()
+            tcp8765 = $false
           }
-          python -m py_compile scripts\gvm_connect\tools.py scripts\gvm_connect\runtime_bridge.py scripts\gvm_connect\task_router.py
-          python -m unittest tests.test_gvm_connect -v
-          python -m unittest tests.test_gvm_relay -v
-          python tests\test_gvm04_safe_activation.py
-          pwsh -NoProfile -File scripts\Invoke-Checks.ps1
+          try { $out.health = (& python -m scripts.gvm_connect.client health 2>&1 | Out-String).Trim() } catch {}
+          try { $out.tcp8765 = (Test-NetConnection 127.0.0.1 -Port 8765 -WarningAction SilentlyContinue).TcpTestSucceeded } catch {}
+          foreach ($n in @('GVM Fast Transport','GVM Relay','GVM Connect','GVM ChatGPT Tunnel')) {
+            try {
+              $t = Get-ScheduledTask -TaskName $n -ErrorAction Stop
+              $i = Get-ScheduledTaskInfo -TaskName $n -ErrorAction SilentlyContinue
+              $out.tasks += [ordered]@{name=$n;state=[string]$t.State;lastResult=$i.LastTaskResult;lastRun=$i.LastRunTime}
+            } catch {
+              $out.tasks += [ordered]@{name=$n;state='missing'}
+            }
+          }
+          $out | ConvertTo-Json -Depth 8 | Set-Content '.ai\logs\gvm-permanent-recovery-evidence.json' -Encoding UTF8
 
-      - name: Capture status
-        shell: powershell
-        run: |
-          Set-Location 'E:\Для chat'
-          python -m scripts.gvm_connect.client health | Out-File '.ai\logs\gvm-autonomy-gvm-connect-health.json' -Encoding utf8
-          Get-ScheduledTask -TaskName 'GVM Fast Transport','GVM Relay','GVM Connect' |
-            Select-Object TaskName,State |
-            ConvertTo-Json | Out-File '.ai\logs\gvm-autonomy-task-status.json' -Encoding utf8
-
-      - name: Upload acceptance evidence
+      - name: Upload permanent recovery evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gvm-autonomy-safe-upgrade
+          name: gvm-permanent-recovery
           path: |
-            E:\Для chat\.ai\logs\gvm-autonomy-safe-upgrade.json
-            E:\Для chat\.ai\logs\gvm-autonomy-codex-final.txt
-            E:\Для chat\.ai\logs\gvm-autonomy-gvm-connect-health.json
-            E:\Для chat\.ai\logs\gvm-autonomy-task-status.json
+            E:\Для chat\.ai\logs\gvm-permanent-recovery-latest.txt
+            E:\Для chat\.ai\logs\gvm-permanent-recovery-stdout.txt
+            E:\Для chat\.ai\logs\gvm-permanent-recovery-stderr.txt
+            E:\Для chat\.ai\logs\gvm-permanent-recovery-evidence.json
+          retention-days: 3
