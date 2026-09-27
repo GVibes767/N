@@ -1,0 +1,46 @@
+name: GVM Quick Recover
+on:
+  push:
+    paths:
+      - ".github/workflows/gvm-quick-recover.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: gvm-quick-recover
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover existing tunnel
+        shell: powershell
+        run: |
+          if ($env:COMPUTERNAME -ne 'GVBSMEDIA') { throw 'Wrong host' }
+          Set-Location 'E:\Для chat'
+          $result='FAILED'
+          try {
+            python -m scripts.gvm_connect.tunnel_runtime restart
+            Start-Sleep -Seconds 8
+            $health = (python -m scripts.gvm_connect.client health 2>&1 | Out-String)
+            $tcp = (Test-NetConnection 127.0.0.1 -Port 8765 -WarningAction SilentlyContinue).TcpTestSucceeded
+            if ($LASTEXITCODE -eq 0 -and $tcp) { $result='LOCAL_READY' }
+          } catch {}
+          Set-Location $env:GITHUB_WORKSPACE
+          @(
+            "result=$result"
+            "host=$env:COMPUTERNAME"
+            "tcp8765=$tcp"
+            "utc=$([DateTime]::UtcNow.ToString('o'))"
+          ) | Set-Content 'gvm-quick-recover-status.txt' -Encoding utf8
+      - name: Publish sanitized status
+        shell: powershell
+        run: |
+          git config user.name "gvm-recovery-bot"
+          git config user.email "gvm-recovery@users.noreply.github.com"
+          git add gvm-quick-recover-status.txt
+          if (git diff --cached --quiet) { exit 0 }
+          git commit -m "status: GVM quick recovery"
+          git push
