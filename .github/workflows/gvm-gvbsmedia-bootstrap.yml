@@ -103,3 +103,5 @@ jobs:
             E:\Для chat\.ai\logs\gvm-permanent-recovery-stderr.txt
             E:\Для chat\.ai\logs\gvm-permanent-recovery-evidence.json
           retention-days: 3
+
+# chat-trigger: belarus-audit-recover-20260927
