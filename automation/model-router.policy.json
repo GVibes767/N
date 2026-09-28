@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "strategy": "chat-collab",
+  "controlPlane": {"primary":"ChatGPT","role":"supervisor-director-critic"},
+  "localExecution": {"runtime":"GVM","role":"durable-executor"},
+  "router": {
+    "provider":"OmniRoute",
+    "baseUrl":"http://127.0.0.1:20128/v1",
+    "model":"auto",
+    "paidApiFallbackOnly":true
+  },
+  "completionLoop":["PLAN","EXECUTE","OBSERVE","VERIFY","CRITIQUE","REPAIR","FINAL_VERIFY","DELIVER"],
+  "budgetPolicy":{"preferSubscriptionOrFreeRoutes":true,"requireExplicitBudgetForPaidFallback":true}
+}
